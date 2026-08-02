@@ -1,0 +1,32 @@
+# .dockerignore
+# Keeps the Docker build context small and avoids copying host build artifacts
+# (which are for a different OS/architecture than the Linux container) into the image.
+
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/*.user
+**/*.userosscache
+**/*.suo
+
+.git/
+.github/
+.idea/
+
+docs/
+*.md
+
+logs/
+**/logs/
+
+# Local-only env files - never bake real secrets into an image
+.env
+.env.*
+!.env.example
+
+# The Web (Razor Pages) project isn't part of the API image
+src/AspNetCoreStarterKit.Web/
+
+# Test project isn't needed to build/run the API image
+tests/

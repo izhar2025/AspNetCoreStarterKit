@@ -432,6 +432,7 @@ FodyWeavers.xsd
 appsettings.Development.json
 .env
 .env.*
+!.env.example
 
 # Logs
 logs/

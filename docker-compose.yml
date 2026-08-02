@@ -1,0 +1,78 @@
+# docker-compose.yml
+# Spins up the full stack: the API and its SQL Server database, wired together.
+#
+# Quick start:
+#   1. Copy .env.example to .env and adjust the values (at minimum, set strong passwords)
+#   2. docker compose up --build
+#   3. API available at http://localhost:8080  (Swagger at http://localhost:8080/swagger)
+#
+# See docs/Docker.md for a full, beginner-friendly walkthrough.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aspnetcorestarterkit-api
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+
+      # Double underscore (__) is how ASP.NET Core config binds environment variables
+      # to nested appsettings.json keys, e.g. ConnectionStrings__DefaultConnection
+      # overrides ConnectionStrings:DefaultConnection.
+      ConnectionStrings__DefaultConnection: "Server=db;Database=StarterKitDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;"
+
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: ${JWT_ISSUER:-AspNetCoreStarterKit}
+      Jwt__Audience: ${JWT_AUDIENCE:-AspNetCoreStarterKitClient}
+      Jwt__AccessTokenExpiryMinutes: "15"
+      Jwt__RefreshTokenExpiryDays: "7"
+
+      Email__SmtpHost: ${SMTP_HOST:-smtp.gmail.com}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__SmtpUser: ${SMTP_USER:-}
+      Email__SmtpPass: ${SMTP_PASS:-}
+      Email__FromEmail: ${SMTP_FROM_EMAIL:-noreply@example.com}
+      Email__FromName: ${SMTP_FROM_NAME:-AspNetCoreStarterKit}
+
+      App__PasswordResetUrl: ${PASSWORD_RESET_URL:-http://localhost:3000/reset-password}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - starterkit-network
+    restart: unless-stopped
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: aspnetcorestarterkit-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+      MSSQL_PID: Developer
+    ports:
+      # Exposed on the host too, so you can connect with SSMS / Azure Data Studio
+      # against localhost:1433 if you want to poke at the database directly.
+      - "1433:1433"
+    volumes:
+      - starterkit-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - starterkit-network
+    restart: unless-stopped
+
+volumes:
+  # Named volume so your data survives `docker compose down` (but not `down -v`).
+  starterkit-db-data:
+
+networks:
+  starterkit-network:
+    driver: bridge

@@ -1,0 +1,20 @@
+<Project>
+  <!--
+    Directory.Build.props is picked up automatically by every .csproj under this folder,
+    so version info lives in ONE place instead of being duplicated across projects.
+
+    Bump these following Semantic Versioning (https://semver.org):
+      MAJOR - breaking changes
+      MINOR - new backward-compatible features
+      PATCH - bug fixes
+
+    See docs/Releasing.md for the full release process (tagging, CHANGELOG, CI/CD).
+  -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>AspNetCoreStarterKit</Product>
+    <Company>AspNetCoreStarterKit</Company>
+  </PropertyGroup>
+</Project>

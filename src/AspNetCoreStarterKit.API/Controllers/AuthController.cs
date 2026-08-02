@@ -11,6 +11,11 @@ namespace AspNetCoreStarterKit.API.Controllers;
 [Route("api/v1/auth")]
 public class AuthController : BaseApiController
 {
+    [HttpPost("register")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<LoginResponseDto>>> Register(RegisterCommand command)
+        => HandleResult(await Mediator.Send(command));
+
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<LoginResponseDto>>> Login(LoginCommand command)

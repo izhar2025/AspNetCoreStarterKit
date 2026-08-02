@@ -1,13 +1,17 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
+using System.Text.Json;
 using AspNetCoreStarterKit.API.Middleware;
 using AspNetCoreStarterKit.Application;
 using AspNetCoreStarterKit.Application.Interfaces;
 using AspNetCoreStarterKit.Infrastructure;
+using AspNetCoreStarterKit.Infrastructure.HealthChecks;
 using AspNetCoreStarterKit.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -127,6 +131,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database", tags: new[] { "db", "sql", "ready" });
+
 var app = builder.Build();
 
 // Configure pipeline
@@ -144,6 +152,40 @@ app.UseAuthorization();
 app.UseMiddleware<PermissionMiddleware>();
 app.MapControllers();
 app.UseSerilogRequestLogging();
+
+// Full health report (DB + any future checks) - useful for dashboards/monitoring
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var payload = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            totalDuration = report.TotalDuration.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.ToString()
+            })
+        });
+        await context.Response.WriteAsync(payload);
+    }
+});
+
+// Lightweight liveness probe - no dependency checks, safe for frequent polling (LB/k8s)
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+
+// Readiness probe - confirms dependencies (DB) are reachable
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 using (var scope = app.Services.CreateScope())
 {

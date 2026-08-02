@@ -1,6 +1,7 @@
 ﻿// AspNetCoreStarterKit.Application/Features/Auth/ForgotPassword.cs
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using AspNetCoreStarterKit.Application.Common.Models;
 using AspNetCoreStarterKit.Application.Interfaces;
@@ -18,11 +19,16 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEmailService _emailService;
+    private readonly ILogger<ForgotPasswordCommandHandler> _logger;
 
-    public ForgotPasswordCommandHandler(IUnitOfWork unitOfWork, IEmailService emailService)
+    public ForgotPasswordCommandHandler(
+        IUnitOfWork unitOfWork,
+        IEmailService emailService,
+        ILogger<ForgotPasswordCommandHandler> logger)
     {
         _unitOfWork = unitOfWork;
         _emailService = emailService;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<object>> Handle(ForgotPasswordCommand request, CancellationToken cancellationToken)
@@ -56,8 +62,16 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         await _unitOfWork.Repository<PasswordResetToken>().AddAsync(resetToken, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Send email (implement email sending)
-        // await _emailService.SendPasswordResetEmail(user.Email, user.FullName, token);
+        try
+        {
+            await _emailService.SendPasswordResetEmailAsync(user.Email, user.FullName, token);
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the request or reveal delivery status to the caller -
+            // that would leak whether the account exists. Log for ops instead.
+            _logger.LogError(ex, "Failed to send password reset email to {Email}", user.Email);
+        }
 
         return ApiResponse<object>.Ok(string.Empty, "If an account exists, a reset link has been sent.");
     }
